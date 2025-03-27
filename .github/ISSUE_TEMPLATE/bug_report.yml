@@ -1,0 +1,51 @@
+name: 🐞 Bug Report
+description: Something went wrong? Let us know!
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please complete the form below.
+
+  - type: input
+    id: environment
+    attributes:
+      label: PHP Version
+      placeholder: "e.g. PHP 8.2.4"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: What did you expect to happen? What actually happened?
+      placeholder: "Describe the issue in detail..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: List exact steps to reproduce the issue.
+      placeholder: |
+        1. Run command `php sitemap.php --url=...`
+        2. Check logs
+        3. Error: ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs or Output
+      description: Copy any error messages or debug output here
+      render: shell
+
+  - type: input
+    id: version
+    attributes:
+      label: Script Version
+      placeholder: "e.g. v1.0.1"

@@ -49,6 +49,8 @@ sitemap.php?url=https://yourdomain.com&key=YOUR_SECRET_HASH&gzip&prettyxml
 |---------------------|-------------|
 | `--url=`            | Comma-separated domain list to crawl (required) |
 | `--key=`            | Secret key to authorize script execution (required) |
+| `--output=`         | By default, the sitemap is saved as `sitemap.xml` in the script directory. You can change this with this option. Example: /var/www/vhosts/yourdomain.com/httpdocs/sitemap.xml |
+| `--changefreqrules` | Enable dynamic `<changefreq>` per URL |
 | `--depth=`          | Max crawl depth (default: 3) |
 | `--resume`          | Resume from last crawl using cache |
 | `--gzip`            | Export sitemap as `.gz` |
@@ -89,6 +91,38 @@ To prevent unauthorized access, the script **requires a secret hash key**:
 Only requests with a matching `--key` or `key=` parameter will be accepted.
 
 ---
+
+## 🛠 Configuration (Before First Use)
+
+Before using the script, make sure to check and optionally customize the following settings inside `sitemap.php`:
+
+- **Authorization Hash**  
+  Replace the value of `$authorized_hash` with your own secret string to prevent unauthorized access.
+  ```php
+  $authorized_hash = 'YOUR_SECRET_KEY';
+  ```
+
+- **Default Patterns (optional)**  
+  The script uses internal lists to set priority and changefreq rules. You can adjust them directly in the class:
+  ```php
+  private array $lowPriorityPattern = ['contact', 'imprint', 'terms'];
+  private array $highPriorityPattern = ['news', 'blog'];
+  private array $monthlyPattern = ['contact'];
+  private array $dailyPattern = ['news'];
+  ```
+
+- **Email Sending**  
+  Make sure your server supports PHP `mail()` function if you want to use `--email` for crawl log delivery.
+
+- **Folder Permissions**  
+  Ensure write permissions for:
+  - `cache/`
+  - `logs/`
+  - `sitemaps/` (if used)
+
+
+---
+
 
 ## 🛠 License
 

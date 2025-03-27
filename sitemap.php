@@ -47,7 +47,7 @@
  * - cache/visited.json
  *
  * Author: Gilles Dumont (QIUBITS SARL)
- * Version: 1.0
+ * Version: 1.1.0
  * License: MIT
  * Created: 2025-03-27
  */

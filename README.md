@@ -32,13 +32,13 @@ It crawls one or multiple domains, respects `robots.txt`, follows meta directive
 ## ⚙️ Usage (CLI)
 
 ```bash
-php sitemap.php --url=https://example.com,https://blog.example.com --key=YOUR_SECRET_HASH [options]
+php sitemap.php --url=https://yourdomain.com,https://blog.yourdomain.com --key=YOUR_SECRET_KEY [options]
 ```
 
 ### 🌐 Usage (Browser)
 
 ```url
-sitemap.php?url=https://yourdomain.com&key=YOUR_SECRET_HASH&gzip&prettyxml
+sitemap.php?url=https://yourdomain.com&key=YOUR_SECRET_KEY&gzip&prettyxml
 ```
 
 ---

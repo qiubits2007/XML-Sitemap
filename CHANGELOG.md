@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [1.1.0] – 2025-03-27
+
+### Added
+- 🔔 **Detailed Ping Logging**: The `pingSearchEngines()` method now logs:
+    - Which search engines were notified
+    - Whether the ping was successful or failed
+    - The length of the response (if successful)
+    - The error message (if failed)
+- Adds HTTP timeout context to each ping request
+
+---
+
 ## [1.0.0] – 2025-03-27
 
 ### Added

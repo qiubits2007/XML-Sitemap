@@ -433,8 +433,14 @@ class SitemapGenerator
         ];
 
         foreach ($engines as $name => $url) {
-            $resp = @file_get_contents($url);
-            $this->log[] = $resp !== false ? "[Ping] Successfully notified $name" : "[Ping] Failed to notify $name";
+            $context = stream_context_create(['http' => ['timeout' => 10]]);
+            $resp = @file_get_contents($url, false, $context);
+            if ($resp !== false) {
+                $this->log[] = "[Ping][$name] Success – Response Length: " . strlen($resp);
+            } else {
+                $error = error_get_last();
+                $this->log[] = "[Ping][$name] Failed – " . ($error['message'] ?? 'Unknown error');
+            }
         }
     }
 

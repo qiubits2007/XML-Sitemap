@@ -11,20 +11,23 @@ It crawls one or multiple domains, respects `robots.txt`, follows meta directive
 - 📑 Combined sitemap for all domains
 - 🧭 Crawling depth control
 - 🔍 `robots.txt` and `<meta name="robots">` handling
-- 🔁 Resumable crawl via cache
-- 🧠 Dynamic priority & changefreq rules
+- 🔁 Resumable crawl via cache (optional)
+- 💣 `--resetcache` to force full crawl (new!)
+- 💣 `--resetlog` to delete old log files (new!)
+- 🧠 Dynamic priority & changefreq rules (via config or patterns)
 - 🧹 Pretty or single-line XML output
 - 📦 GZIP compression (optional)
 - 📧 Log by email
 - 🛠 Health check report
 - 📡 Ping Google/Bing/Yandex
+- 🧪 Debug mode with detailed logs
 
 ---
 
 ## 🚀 Requirements
 
 - PHP 8.0 or newer
-- curl extension enabled
+- `curl` and `dom` extensions enabled
 - Write permissions to the script folder (for logs/cache/sitemaps)
 
 ---
@@ -32,10 +35,13 @@ It crawls one or multiple domains, respects `robots.txt`, follows meta directive
 ## ⚙️ Usage (CLI)
 
 ```bash
-php sitemap.php --url=https://yourdomain.com,https://blog.yourdomain.com --key=YOUR_SECRET_KEY [options]
+php sitemap.php \
+  --url=https://yourdomain.com,https://blog.yourdomain.com \
+  --key=YOUR_SECRET_KEY \
+  [options]
 ```
 
-### 🌐 Usage (Browser)
+## 🌐 Usage (Browser)
 
 ```url
 sitemap.php?url=https://yourdomain.com&key=YOUR_SECRET_KEY&gzip&prettyxml
@@ -49,35 +55,93 @@ sitemap.php?url=https://yourdomain.com&key=YOUR_SECRET_KEY&gzip&prettyxml
 |---------------------|-------------|
 | `--url=`            | Comma-separated domain list to crawl (required) |
 | `--key=`            | Secret key to authorize script execution (required) |
-| `--output=`         | By default, the sitemap is saved as `sitemap.xml` in the script directory. You can change this with this option. Example: /var/www/vhosts/yourdomain.com/httpdocs/sitemap.xml |
-| `--changefreqrules` | Enable dynamic `<changefreq>` per URL |
+| `--output=`         | Output path for the sitemap file |
 | `--depth=`          | Max crawl depth (default: 3) |
-| `--resume`          | Resume from last crawl using cache |
 | `--gzip`            | Export sitemap as `.gz` |
 | `--prettyxml`       | Human-readable XML output |
-| `--ignoremeta`      | Ignore `<meta name="robots">` |
+| `--resume`          | Resume from last crawl using `cache/visited.json` |
+| `--resetcache`      | Force fresh crawl by deleting the cache (NEW) |
+| `--resetlog`        | Clear previous crawl logs before start (NEW) |
+| `--filters`         | Enable external filtering from `filter_config.json` |
+| `--priorityrules`   | Enable dynamic `<priority>` based on URL patterns |
+| `--changefreqrules` | Enable dynamic `<changefreq>` based on URL patterns |
+| `--ignoremeta`      | Ignore `<meta name="robots">` directives |
 | `--respectrobots`   | Obey rules in `robots.txt` |
 | `--email=`          | Send crawl log to this email |
-| `--ping`            | Ping search engines after sitemap creation |
-| `--debug`           | Output detailed log info |
+| `--ping`            | Notify search engines after sitemap generation |
+| `--threads=`        | Number of concurrent crawl threads (default: 10) |
 | `--agent=`          | Set a custom User-Agent |
-| `--priorityrules`   | Enable dynamic `<priority>` per URL |
-| `--changefreqrules` | Enable dynamic `<changefreq>` per URL |
+| `--debug`           | Output detailed log info for debugging |
 
 ---
 
 ## 📁 Output Files
 
-- `sitemap.xml` (or `.gz` if `--gzip` used)
-- `cache/visited.json` → stores crawl progress (for resume)
+- `sitemap.xml` (or `.gz` if `--gzip` is used)
+- `cache/visited.json` → stores crawl progress (used with `--resume`)
 - `logs/crawl_log.txt` → full crawl log
-- `logs/health_report.txt` → overview of blocked pages, errors, speed
+- `logs/health_report.txt` → summary of crawl (errors, speed, blocks)
 
 ---
 
-## 📬 Ping Support (if `--ping` is enabled)
+## ⚙️ External Filter Config
 
-The script will notify:
+Create a `config/filter.json` to define your own include/exclude patterns and dynamic rules:
+
+```json
+{
+  "excludeExtensions": ["jpg", "png", "zip", "docx"],
+  "excludePatterns": ["*/private/*", "debug"],
+  "includeOnlyPatterns": ["blog", "news"],
+  "priorityPatterns": {
+    "high": ["blog", "news"],
+    "low": ["impressum", "privacy"]
+  },
+  "changefreqPatterns": {
+    "daily": ["blog", "news{
+      "excludeExtensions": ["jpg", "png", "docx", "zip"],
+      "excludePatterns": [],
+      "includeOnlyPatterns": [],
+      "priorityPatterns": {
+        "high": [
+          "news",
+          "blog",
+          "offers"
+        ],
+        "low": [
+          "terms-and-conditions",
+          "legal-notice",
+          "privacy-policy"
+        ]
+      },
+      "changefreqPatterns": {
+        "daily": [
+          "news",
+          "blog",
+          "offers"
+        ],
+        "monthly": [
+          "terms-and-conditions",
+          "legal-notice",
+          "privacy-policy"
+        ]
+      }
+      }"],
+    "monthly": ["impressum", "agb"]
+  }
+}
+```
+
+Activate with:
+```bash
+--filters --priorityrules --changefreqrules
+```
+
+---
+
+## 📬 Ping Support
+
+With `--ping` enabled, the script will notify:
 
 - Google: `https://www.google.com/ping`
 - Bing: `https://www.bing.com/ping`
@@ -85,53 +149,49 @@ The script will notify:
 
 ---
 
-## 🔒 Security
+## 🔐 Security
 
-To prevent unauthorized access, the script **requires a secret hash key**:
-Only requests with a matching `--key` or `key=` parameter will be accepted.
+The script **requires a secret key** (`--key=` or `key=`) to run.  
+Set it inside the script:
 
----
-
-## 🛠 Configuration (Before First Use)
-
-Before using the script, make sure to check and optionally customize the following settings inside `sitemap.php`:
-
-- **Authorization Hash**  
-  Replace the value of `$authorized_hash` with your own secret string to prevent unauthorized access.
-  ```php
-  $authorized_hash = 'YOUR_SECRET_KEY';
-  ```
-
-- **Default Patterns (optional)**  
-  The script uses internal lists to set priority and changefreq rules. You can adjust them directly in the class:
-  ```php
-  private array $lowPriorityPattern = ['contact', 'imprint', 'terms'];
-  private array $highPriorityPattern = ['news', 'blog'];
-  private array $monthlyPattern = ['contact'];
-  private array $dailyPattern = ['news'];
-  ```
-
-- **Email Sending**  
-  Make sure your server supports PHP `mail()` function if you want to use `--email` for crawl log delivery.
-
-- **Folder Permissions**  
-  Ensure write permissions for:
-  - `cache/`
-  - `logs/`
-  - `sitemaps/` (if used)
-
+```php
+$authorized_hash = 'YOUR_SECRET_KEY';
+```
 
 ---
 
+## 📤 Email Log
 
-## 🛠 License
+Send crawl reports to your inbox with:
+
+```bash
+--email=you@yourdomain.com
+```
+
+Your server must support the `mail()` function.
+
+---
+
+## 🧪 Debugging
+
+Enable `--debug` to log everything:
+- Pattern matches
+- Skipped URLs
+- Meta robots blocking
+- Robots.txt interpretation
+- Response times
+- Log file resets
+
+---
+
+## 📄 License
 
 MIT License  
-Feel free to modify, extend or contribute!
+Feel free to fork, modify, or contribute!
 
 ---
 
 ## 👤 Author
 
 Built by Gilles Dumont (Qiubits SARL)  
-Feedback, issues, and contributions welcome.
+Contributions and feedback welcome.

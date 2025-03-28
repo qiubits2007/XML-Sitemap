@@ -4,6 +4,43 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [1.2.0] - 2025-03-28
+
+### ✨ Added
+
+- `--resetcache`: Forces fresh crawl by deleting `visited.json` before crawling
+- `--resetlog`: Deletes `logs/crawl_log.txt` and `logs/health_report.txt` before crawling
+- Log count of removed cache entries during reset
+- Debug logging of reset actions and loaded filters
+- External `filter.json` support (optional filtering of URLs and file extensions)
+- Pattern-based priority and changefreq rules via `priorityPatterns` and `changefreqPatterns`
+- Logging of matched priority and frequency rules
+- Multi-domain support (`--url=a.com,b.com`)
+- Per-domain crawl logging with combined sitemap
+- Canonical URL normalization (e.g. removes `/index.html`)
+- Better detection of `<meta name="robots">` (now finds tags even on same line)
+
+### 🛠 Improved
+
+- XML output logic cleaned and pretty-printing stabilized
+- Better CLI option parsing with `array_key_exists` safety
+- Fully PSR-12 compliant code style
+- Trimmed, safer `normalizeUrl()` with validation
+- Optional debug output logs to help diagnose issues
+- Automatic sitemap folder creation only if needed
+- Dynamic configuration through flags: `--filters`, `--priorityrules`, `--changefreqrules`
+
+### 🐞 Fixed
+
+- Robots meta tag parsing with `content="all"`
+- Ignore invalid or broken URLs gracefully
+- Avoid duplicated `<priority>` and `<changefreq>` entries
+- Better error handling in multithreaded curl execution
+- Files with excluded extensions no longer enqueued
+- Logs and health reports now resettable with `--resetlog`
+
+---
+
 ## [1.1.0] – 2025-03-27
 
 ### Added

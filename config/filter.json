@@ -1,0 +1,29 @@
+{
+  "excludeExtensions": ["jpg", "png", "docx", "zip"],
+  "excludePatterns": [],
+  "includeOnlyPatterns": [],
+  "priorityPatterns": {
+    "high": [
+      "news",
+      "blog",
+      "offers"
+    ],
+    "low": [
+      "terms-and-conditions",
+      "legal-notice",
+      "privacy-policy"
+    ]
+  },
+  "changefreqPatterns": {
+    "daily": [
+      "news",
+      "blog",
+      "offers"
+    ],
+    "monthly": [
+      "terms-and-conditions",
+      "legal-notice",
+      "privacy-policy"
+    ]
+  }
+}

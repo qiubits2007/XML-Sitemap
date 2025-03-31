@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [1.3.0] - 2025-03-31
+
+### Added
+
+- New option: `--splitbysite` to generate separate sitemaps per domain
+- Automatic generation of `sitemap_index.xml` when using `--splitbysite`
+- Search engine pinging now targets `sitemap_index.xml` if split mode is active
+
+---
+
 ## [1.2.0] - 2025-03-28
 
 ### ✨ Added

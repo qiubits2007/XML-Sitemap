@@ -45,6 +45,7 @@
  * --priorityrules      Enable dynamic priority per URL based on patterns
  * --changefreqrules    Enable dynamic changefreq per URL based on patterns
  * --allowfiles         Allow crawling and indexing of files (e.g. PDF, DOCX)
+ * --splitbysite        Write one sitemap per domain instead of a combined one (NEW)
  * --debug              Enable detailed debug logging (output to log file)
  *
  * Output:
@@ -54,9 +55,9 @@
  * - cache/visited.json
  *
  * Author: Gilles Dumont (QIUBITS SARL)
- * Version: 1.2.0
+ * Version: 1.3.0
  * License: MIT
- * Created: 2025-03-28
+ * Created: 2025-03-31
  */
 
 declare(strict_types=1);
@@ -89,6 +90,7 @@ class SitemapGenerator
     private bool $useChangefreqRules = false;
     private bool $resetCache = false;
     private bool $resetLog = false;
+    private bool $splitBySite = false;
 
     // === Optional configuration ===
     private ?string $emailLog = null;
@@ -101,6 +103,7 @@ class SitemapGenerator
     private string $scheme = '';
     private array $disallowedPaths = [];
     private int $crawlDelay = 0;
+    private array $generatedSitemaps = [];
 
     // === File system paths ===
     private string $cacheDir = __DIR__ . '/cache';
@@ -147,6 +150,7 @@ class SitemapGenerator
         $this->useChangefreqRules = array_key_exists('changefreqrules', $options);
         $this->resetCache = array_key_exists('resetcache', $options);
         $this->resetLog = array_key_exists('resetlog', $options);
+        $this->splitBySite = array_key_exists('splitbysite', $options);
 
         // === Optional
         $this->emailLog = $options['email'] ?? null;
@@ -253,7 +257,13 @@ class SitemapGenerator
             $this->host = $parsedUrl['host'] ?? '';
             $this->scheme = $parsedUrl['scheme'] ?? 'https';
 
-            // Ensure output directory exists
+            // Set a separate output file if splitbysite is enabled
+            if ($this->splitBySite) {
+                $safeHost = preg_replace('/[^a-z0-9\-\.]/i', '_', $this->host);
+                $this->outputPath = __DIR__ . "/sitemaps/{$safeHost}.xml";
+            }
+
+            // Make sure the output directory exists
             $dir = dirname($this->outputPath);
             if (!file_exists($dir)) {
                 if (!mkdir($dir, 0777, true) && !is_dir($dir)) {
@@ -262,11 +272,24 @@ class SitemapGenerator
                 }
             }
 
-            // Log output location
+            // Track sitemap metadata if generating a sitemap index later
+            if ($this->splitBySite) {
+                $this->generatedSitemaps[] = [
+                    'file' => basename($this->outputPath),
+                    'lastmod' => date('Y-m-d'),
+                    'base' => "{$this->scheme}://{$this->host}/" . trim(str_replace(__DIR__, '', dirname($this->outputPath)), '/')
+                ];
+            }
+
             $this->log[] = "[INFO] Saving sitemap to: {$this->outputPath}";
 
             // Start crawl process for this domain
             $this->runCrawl();
+        }
+
+        // After all domains are processed, create a sitemap index if needed
+        if ($this->splitBySite && count($this->generatedSitemaps) > 0) {
+            $this->createSitemapIndex();
         }
     }
 
@@ -684,19 +707,30 @@ class SitemapGenerator
     /**
      * Notifies major search engines by pinging them with the sitemap URL.
      */
-
     private function pingSearchEngines(): void
     {
-        $sitemapUrl = $this->startUrl . '/sitemap.xml' . ($this->useGzip ? '.gz' : '');
+        // Use sitemap_index.xml if splitBySite is enabled
+        if ($this->splitBySite) {
+            $base = $this->getBaseUrlFromFirstDomain();
+            $sitemapUrl = $base . '/sitemap_index.xml';
+            $this->log[] = "[PING] Notifying search engines using sitemap index: $sitemapUrl";
+        } else {
+            $sitemapUrl = $this->startUrl . '/sitemap.xml' . ($this->useGzip ? '.gz' : '');
+            $this->log[] = "[PING] Notifying search engines using single sitemap: $sitemapUrl";
+        }
+
+        // Define ping endpoints
         $engines = [
             'Google' => 'https://www.google.com/ping?sitemap=' . urlencode($sitemapUrl),
-            'Bing' => 'https://www.bing.com/ping?sitemap=' . urlencode($sitemapUrl),
+            'Bing'   => 'https://www.bing.com/ping?sitemap=' . urlencode($sitemapUrl),
             'Yandex' => 'https://webmaster.yandex.com/ping?sitemap=' . urlencode($sitemapUrl)
         ];
 
+        // Execute pings with timeout and logging
         foreach ($engines as $name => $url) {
             $context = stream_context_create(['http' => ['timeout' => 10]]);
             $resp = @file_get_contents($url, false, $context);
+
             if ($resp !== false) {
                 $this->log[] = "[Ping][$name] Success – Response Length: " . strlen($resp);
             } else {
@@ -896,6 +930,56 @@ class SitemapGenerator
         $regex = '#^' . str_replace('\*', '.*', preg_quote($pattern, '#')) . '$#i';
         return (bool) preg_match($regex, $subject);
     }
+
+    /**
+     *
+     * Determine the base URL from the first domain in the startUrls array
+     */
+    private function getBaseUrlFromFirstDomain(): string
+    {
+        $first = $this->startUrls[0] ?? '';
+        $parsed = parse_url($first);
+        $scheme = $parsed['scheme'] ?? 'https';
+        $host = $parsed['host'] ?? 'localhost';
+
+        return "{$scheme}://{$host}";
+    }
+
+
+    /**
+     * Generate a sitemap_index.xml that includes all generated sitemaps
+     * This helps search engines discover multiple sitemaps from a single entry point
+     */
+    private function createSitemapIndex(): void
+    {
+        $indexPath = __DIR__ . '/sitemap_index.xml';
+
+        $dom = new DOMDocument('1.0', 'UTF-8');
+        $dom->formatOutput = true;
+
+        // Create root <sitemapindex> element with XML namespace
+        $index = $dom->createElement('sitemapindex');
+        $index->setAttribute('xmlns', 'http://www.sitemaps.org/schemas/sitemap/0.9');
+        $dom->appendChild($index);
+
+        // Add each generated sitemap as <sitemap> entry
+        foreach ($this->generatedSitemaps as $entry) {
+            $sitemap = $dom->createElement('sitemap');
+
+            // Build absolute sitemap URL
+            $loc = $entry['base'] . '/' . $entry['file'];
+
+            $sitemap->appendChild($dom->createElement('loc', $loc));
+            $sitemap->appendChild($dom->createElement('lastmod', $entry['lastmod']));
+            $index->appendChild($sitemap);
+
+            $this->log[] = "[INDEX] Added to sitemap_index: $loc";
+        }
+
+        // Save the sitemap_index.xml file
+        $dom->save($indexPath);
+        $this->log[] = "[INDEX] Created sitemap_index.xml with " . count($this->generatedSitemaps) . " entries.";
+    }
 }
 
 // Define authorized hash key to protect script access
@@ -911,7 +995,7 @@ $options = $isCli
         "ignoremeta", "prettyxml", "respectrobots", "ping",
         "agent::", "debug", "output::", "threads::", "allowfiles::",
         "filters", "priorityrules", "changefreqrules", "resetcache",
-        "resetlog"
+        "resetlog", "splitbysite"
     ])
     : [
         'url'              => $_GET['url'] ?? null,
@@ -933,7 +1017,8 @@ $options = $isCli
         'priorityrules'    => isset($_GET['priorityrules']),
         'changefreqrules'  => isset($_GET['changefreqrules']),
         'resetcache' => isset($_GET['resetcache']),
-        'resetlog' => isset($_GET['resetlog'])
+        'resetlog' => isset($_GET['resetlog']),
+        'splitbysite' => isset($_GET['splitbysite'])
     ];
 
 // Optional debug: dump raw options

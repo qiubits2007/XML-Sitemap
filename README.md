@@ -71,6 +71,7 @@ sitemap.php?url=https://yourdomain.com&key=YOUR_SECRET_KEY&gzip&prettyxml
 | `--ping`            | Notify search engines after sitemap generation |
 | `--threads=`        | Number of concurrent crawl threads (default: 10) |
 | `--agent=`          | Set a custom User-Agent |
+| `--splitbysite`     | Generate one sitemap per domain and build sitemap_index.xml to link them |
 | `--debug`           | Output detailed log info for debugging |
 
 ---
@@ -181,6 +182,18 @@ Enable `--debug` to log everything:
 - Robots.txt interpretation
 - Response times
 - Log file resets
+
+---
+
+### How Split-by-Site Works
+
+When using `--splitbysite`, the crawler will:
+
+1. Create a separate sitemap file for each domain (e.g., `/sitemaps/domain1.xml`, `/sitemaps/domain2.xml`)
+2. Automatically generate a `sitemap_index.xml` file in the root directory
+3. Ping search engines (Google, Bing, Yandex) with the `sitemap_index.xml` URL instead of individual sitemap files
+
+This is useful when crawling multiple domains in a single run.
 
 ---
 

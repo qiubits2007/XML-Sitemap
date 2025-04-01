@@ -9,6 +9,7 @@ It crawls one or multiple domains, respects `robots.txt`, follows meta directive
 
 - 🔗 Multi-domain support (comma-separated URLs)
 - 📑 Combined sitemap for all domains
+- 📑 Automatically creates multiple sitemap files if more than 50,000 URLs are found 
 - 🧭 Crawling depth control
 - 🔍 `robots.txt` and `<meta name="robots">` handling
 - 🔁 Resumable crawl via cache (optional)
@@ -183,6 +184,19 @@ Enable `--debug` to log everything:
 - Robots.txt interpretation
 - Response times
 - Log file resets
+
+---
+
+## Sitemap Splitting
+
+If more than **50,000 URLs** are crawled (the limit of a single sitemap file per [sitemaps.org spec](https://www.sitemaps.org/protocol.html)),  
+the script will automatically create multiple sitemap files:
+
+- `sitemap-1.xml`, `sitemap-2.xml`, ...
+- Or `domain-a-1.xml`, `domain-a-2.xml`, ... if `--splitbysite` is active
+- These are automatically referenced from a `sitemap_index.xml`
+
+No configuration is needed – the split is automatic.
 
 ---
 

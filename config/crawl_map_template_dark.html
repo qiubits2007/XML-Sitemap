@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Crawl Map</title>
+  <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <style>
+    body {
+      background-color: #1e1e1e;
+      color: #ddd;
+      margin: 0;
+      padding: 0;
+      font-family: sans-serif;
+    }
+    #network {
+      width: 100vw;
+      height: 100vh;
+      background-color: #121212;
+      border: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="network"></div>
+  <script>
+    fetch('crawl_graph.json')
+      .then(response => response.json())
+      .then(data => {
+        const container = document.getElementById('network');
+        const options = {
+          nodes: {
+            shape: 'dot',
+            size: 12,
+            font: { color: '#ffffff' },
+            color: {
+              border: '#ffffff',
+              background: '#3c3c3c',
+              highlight: { background: '#666', border: '#f0f0f0' }
+            }
+          },
+          edges: {
+            arrows: 'to',
+            color: '#888',
+            width: 1.5,
+            smooth: true
+          },
+          physics: {
+            stabilization: true,
+            barnesHut: { gravitationalConstant: -8000 }
+          },
+          interaction: {
+            tooltipDelay: 200,
+            hover: true,
+            navigationButtons: true,
+            keyboard: true
+          }
+        };
+        const network = new vis.Network(container, data, options);
+      });
+  </script>
+</body>
+</html>

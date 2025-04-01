@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [1.4.0] - 2025-03-28
+
+### Added
+- 🧠 Visual Crawl Map (Graph) now available:
+  - JSON export of link structure (`graph.json`)
+  - Interactive dark-themed `crawl_map.html` with zoom, drag and tooltips
+- 🧹 Reset options:
+  - `--resetcache` to clear previous crawl state
+  - `--resetlog` to clear old logs before new crawl
+- 📨 Improved mail logging: email status (success/failure) is now logged
+- 🧩 Improved support for split-by-domain with dynamic `--output` rewriting
+
+### Fixed
+- Bug where `mail()` silently failed if sendmail config was missing
+- Graph export block was not triggered in some conditions – now runs reliably after each crawl
+
+### Changed
+- Dynamic sitemap splitting now also works with `--output=...`
+- Canonical URL generation and filters are more robust for edge cases
+
+---
+
 ## [1.3.0] - 2025-03-31
 
 ### Added

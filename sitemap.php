@@ -55,9 +55,9 @@
  * - cache/visited.json
  *
  * Author: Gilles Dumont (QIUBITS SARL)
- * Version: 1.3.0
+ * Version: 1.4.0
  * License: MIT
- * Created: 2025-03-31
+ * Created: 2025-04-01
  */
 
 declare(strict_types=1);
@@ -76,6 +76,9 @@ class SitemapGenerator
     private string $userAgent = 'SitemapGenerator';
     private int $threadCount = 10;
     private bool $allowFiles = false;
+    private array $graphEdges = [];
+    private bool $exportGraph = false;
+    private int $sitemapLimit = 50000; // Max URLs per sitemap file
 
     // === Feature toggles / flags ===
     private bool $useGzip = false;
@@ -97,6 +100,7 @@ class SitemapGenerator
 
     // === Internal working data ===
     private array $visited = [];
+
     private array $log = [];
     private array $queue = [];
     private string $host = '';
@@ -151,6 +155,7 @@ class SitemapGenerator
         $this->resetCache = array_key_exists('resetcache', $options);
         $this->resetLog = array_key_exists('resetlog', $options);
         $this->splitBySite = array_key_exists('splitbysite', $options);
+        $this->exportGraph = array_key_exists('graphmap', $options);
 
         // === Optional
         $this->emailLog = $options['email'] ?? null;
@@ -256,14 +261,22 @@ class SitemapGenerator
             $parsedUrl = parse_url($startUrl);
             $this->host = $parsedUrl['host'] ?? '';
             $this->scheme = $parsedUrl['scheme'] ?? 'https';
+            $safeHost = preg_replace('/[^a-z0-9\-\.]/i', '_', $this->host);
 
-            // Set a separate output file if splitbysite is enabled
+            // Determine output path for this domain
             if ($this->splitBySite) {
-                $safeHost = preg_replace('/[^a-z0-9\-\.]/i', '_', $this->host);
-                $this->outputPath = __DIR__ . "/sitemaps/{$safeHost}.xml";
+                // If user defined --output=/some/dir/sitemap.xml → adjust per domain
+                if (!empty($this->outputPath)) {
+                    $ext = pathinfo($this->outputPath, PATHINFO_EXTENSION);
+                    $base = preg_replace('/\\.' . $ext . '$/', '', $this->outputPath);
+                    $this->outputPath = $base . '-' . $safeHost . '.' . $ext;
+                } else {
+                    // Default fallback
+                    $this->outputPath = __DIR__ . "/sitemaps/{$safeHost}.xml";
+                }
             }
 
-            // Make sure the output directory exists
+            // Ensure output directory exists
             $dir = dirname($this->outputPath);
             if (!file_exists($dir)) {
                 if (!mkdir($dir, 0777, true) && !is_dir($dir)) {
@@ -285,11 +298,6 @@ class SitemapGenerator
 
             // Start crawl process for this domain
             $this->runCrawl();
-        }
-
-        // After all domains are processed, create a sitemap index if needed
-        if ($this->splitBySite && count($this->generatedSitemaps) > 0) {
-            $this->createSitemapIndex();
         }
     }
 
@@ -411,6 +419,8 @@ class SitemapGenerator
                         continue;
                     }
 
+                    $this->graphEdges[] = ['from' => $url, 'to' => $canonicalLink]; // Log internal link structure
+
                     // Check for unwanted file types
                     $ext = strtolower(pathinfo(parse_url($canonicalLink, PHP_URL_PATH) ?? '', PATHINFO_EXTENSION));
                     if (!$this->allowFiles && in_array($ext, $this->excludeExtensions)) {
@@ -438,9 +448,11 @@ class SitemapGenerator
 
         curl_multi_close($mh);
 
-        // Generate sitemap
-        $this->createSitemap();
-        $this->log[] = "Sitemap successfully created with " . count($this->visited) . " URLs on " . date('Y-m-d H:i:s') . ".";
+        // After all domains are processed, create a sitemap index if needed
+        if ($this->splitBySite && count($this->generatedSitemaps) > 0) {
+            $this->createSitemapIndex();
+            $this->log[] = "Sitemap successfully created with " . count($this->visited) . " URLs on " . date('Y-m-d H:i:s') . ".";
+        }
 
         // Generate health check report
         $statusSummary = [
@@ -469,12 +481,24 @@ class SitemapGenerator
 
         // Send log via email if configured
         if (!empty($this->emailLog) && filter_var($this->emailLog, FILTER_VALIDATE_EMAIL)) {
-            mail($this->emailLog, "Sitemap Crawl Report", implode("\n", $this->log));
+            $sent = mail($this->emailLog, "Sitemap Crawl Report", implode("\n", $this->log));
+            if ($sent) {
+                $this->log[] = "[MAIL] Report sent to: {$this->emailLog}";
+            } else {
+                $this->log[] = "[MAIL ERROR] Failed to send email to: {$this->emailLog}";
+            }
         }
 
         // Notify search engines if enabled
         if ($this->pingSearchEngines) {
             $this->pingSearchEngines();
+        }
+
+        // ✅ Final: Export Graph
+        if ($this->exportGraph && !empty($this->graphEdges)) {
+            $this->exportGraphJson();       // Save crawl structure as JSON
+            $this->exportGraphHtml();       // Create interactive HTML map
+            $this->log[] = "[GRAPH] Crawl map exported as JSON + HTML.";
         }
     }
 
@@ -952,33 +976,140 @@ class SitemapGenerator
      */
     private function createSitemapIndex(): void
     {
-        $indexPath = __DIR__ . '/sitemap_index.xml';
-
-        $dom = new DOMDocument('1.0', 'UTF-8');
-        $dom->formatOutput = true;
-
-        // Create root <sitemapindex> element with XML namespace
-        $index = $dom->createElement('sitemapindex');
-        $index->setAttribute('xmlns', 'http://www.sitemaps.org/schemas/sitemap/0.9');
-        $dom->appendChild($index);
-
-        // Add each generated sitemap as <sitemap> entry
-        foreach ($this->generatedSitemaps as $entry) {
-            $sitemap = $dom->createElement('sitemap');
-
-            // Build absolute sitemap URL
-            $loc = $entry['base'] . '/' . $entry['file'];
-
-            $sitemap->appendChild($dom->createElement('loc', $loc));
-            $sitemap->appendChild($dom->createElement('lastmod', $entry['lastmod']));
-            $index->appendChild($sitemap);
-
-            $this->log[] = "[INDEX] Added to sitemap_index: $loc";
+        if (empty($this->visited)) {
+            $this->log[] = "[SITEMAP] No URLs to write.";
+            return;
         }
 
-        // Save the sitemap_index.xml file
-        $dom->save($indexPath);
-        $this->log[] = "[INDEX] Created sitemap_index.xml with " . count($this->generatedSitemaps) . " entries.";
+        $urls = array_keys($this->visited);
+        $chunks = array_chunk($urls, $this->sitemapLimit);
+        $multi = count($chunks) > 1;
+        $index = 1;
+        $writtenFiles = [];
+
+        foreach ($chunks as $chunk) {
+            $dom = new DOMDocument('1.0', 'UTF-8');
+            $dom->preserveWhiteSpace = false;
+            $dom->formatOutput = true;
+
+            $urlset = $dom->createElement('urlset');
+            $urlset->setAttribute('xmlns', 'http://www.sitemaps.org/schemas/sitemap/0.9');
+            $dom->appendChild($urlset);
+
+            foreach ($chunk as $url) {
+                // Log and calculate priority/frequency
+                $this->log[] = "[CLEAN URL] $url => " . urlencode($url);
+                $priority = $this->getPriorityForUrl($url);
+                $freq = $this->getChangefreqForUrl($url);
+
+                if ($this->debug) {
+                    $this->log[] = "[PRIORITY DEBUG] $url => $priority";
+                    $this->log[] = "[FREQ DEBUG] $url => $freq";
+                }
+
+                // Build <url> entry
+                $urlEl = $dom->createElement('url');
+                $urlEl->appendChild($dom->createElement('loc', htmlspecialchars($url)));
+                $urlEl->appendChild($dom->createElement('lastmod', date('Y-m-d')));
+                $urlEl->appendChild($dom->createElement('changefreq', $freq));
+                $urlEl->appendChild($dom->createElement('priority', $priority));
+                $urlset->appendChild($urlEl);
+            }
+
+            // Define file name (append -1, -2 if multiple parts)
+            $suffix = $multi ? "-$index" : '';
+            $outputFile = preg_replace('/\\.xml$/', "$suffix.xml", $this->outputPath);
+            $writtenFiles[] = $outputFile;
+
+            // Write XML to file (optionally gzip)
+            $xmlOutput = $dom->saveXML();
+            if ($this->useGzip) {
+                $gzPath = $outputFile . '.gz';
+                if (file_put_contents($gzPath, gzencode($xmlOutput)) !== false) {
+                    $this->log[] = "[SITEMAP] GZIP sitemap saved to: $gzPath";
+                } else {
+                    $this->log[] = "[ERROR] Failed to write GZIP sitemap: $gzPath";
+                }
+            } else {
+                if (file_put_contents($outputFile, $xmlOutput) !== false) {
+                    $this->log[] = "[SITEMAP] Sitemap saved to: $outputFile";
+                } else {
+                    $this->log[] = "[ERROR] Failed to write sitemap: $outputFile";
+                }
+            }
+
+            $index++;
+        }
+
+        // Optional: generate sitemap index if multiple files
+        if ($multi) {
+            $indexDom = new DOMDocument('1.0', 'UTF-8');
+            $indexDom->formatOutput = true;
+
+            $sitemapIndex = $indexDom->createElement('sitemapindex');
+            $sitemapIndex->setAttribute('xmlns', 'http://www.sitemaps.org/schemas/sitemap/0.9');
+            $indexDom->appendChild($sitemapIndex);
+
+            foreach ($writtenFiles as $file) {
+                $relativeUrl = $this->startUrl . '/' . basename($file);
+                if ($this->useGzip) $relativeUrl .= '.gz';
+
+                $sitemap = $indexDom->createElement('sitemap');
+                $sitemap->appendChild($indexDom->createElement('loc', $relativeUrl));
+                $sitemap->appendChild($indexDom->createElement('lastmod', date('Y-m-d')));
+                $sitemapIndex->appendChild($sitemap);
+            }
+
+            $indexFile = preg_replace('/\\.xml$/', '_index.xml', $this->outputPath);
+            file_put_contents($indexFile, $indexDom->saveXML());
+            $this->log[] = "[SITEMAP] Index sitemap created: $indexFile";
+        }
+
+        if ($this->debug) {
+            $this->log[] = "[SITEMAP] Using dynamic priority: " . ($this->usePriorityRules ? 'yes' : 'no');
+            $this->log[] = "[SITEMAP] Using dynamic changefreq: " . ($this->useChangefreqRules ? 'yes' : 'no');
+        }
+    }
+
+    private function exportGraphHtml(): void
+    {
+        $templatePath = __DIR__ . '/config/crawl_map_template_dark.html';
+
+        if (!file_exists($templatePath)) {
+            $this->log[] = "[ERROR] Graph template not found: crawl_map_template.html";
+            return;
+        }
+
+        $html = file_get_contents($templatePath);
+        file_put_contents("{$this->logDir}/crawl_map.html", $html);
+    }
+
+    private function exportGraphJson(): void
+    {
+        $nodes = [];
+        $unique = [];
+
+        foreach ($this->graphEdges as $edge) {
+            $from = $edge['from'];
+            $to = $edge['to'];
+
+            // Avoid duplicate node entries
+            if (!isset($unique[$from])) {
+                $nodes[] = ['id' => $from, 'label' => parse_url($from, PHP_URL_PATH)];
+                $unique[$from] = true;
+            }
+            if (!isset($unique[$to])) {
+                $nodes[] = ['id' => $to, 'label' => parse_url($to, PHP_URL_PATH)];
+                $unique[$to] = true;
+            }
+        }
+
+        $graph = [
+            'nodes' => $nodes,
+            'edges' => $this->graphEdges
+        ];
+
+        file_put_contents("{$this->logDir}/crawl_graph.json", json_encode($graph, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
 }
 
@@ -995,7 +1126,7 @@ $options = $isCli
         "ignoremeta", "prettyxml", "respectrobots", "ping",
         "agent::", "debug", "output::", "threads::", "allowfiles::",
         "filters", "priorityrules", "changefreqrules", "resetcache",
-        "resetlog", "splitbysite"
+        "resetlog", "splitbysite", "graphmap"
     ])
     : [
         'url'              => $_GET['url'] ?? null,
@@ -1016,9 +1147,10 @@ $options = $isCli
         'filters'          => isset($_GET['filters']),
         'priorityrules'    => isset($_GET['priorityrules']),
         'changefreqrules'  => isset($_GET['changefreqrules']),
-        'resetcache' => isset($_GET['resetcache']),
-        'resetlog' => isset($_GET['resetlog']),
-        'splitbysite' => isset($_GET['splitbysite'])
+        'resetcache'       => isset($_GET['resetcache']),
+        'resetlog'         => isset($_GET['resetlog']),
+        'splitbysite'      => isset($_GET['splitbysite']),
+        'graphmap'         => isset($_GET['graphmap'])
     ];
 
 // Optional debug: dump raw options

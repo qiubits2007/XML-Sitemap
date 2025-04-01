@@ -63,6 +63,7 @@ sitemap.php?url=https://yourdomain.com&key=YOUR_SECRET_KEY&gzip&prettyxml
 | `--resetcache`      | Force fresh crawl by deleting the cache (NEW) |
 | `--resetlog`        | Clear previous crawl logs before start (NEW) |
 | `--filters`         | Enable external filtering from `filter_config.json` |
+| `--graph`           | Export visual crawl map (JSON + interactive HTML) |
 | `--priorityrules`   | Enable dynamic `<priority>` based on URL patterns |
 | `--changefreqrules` | Enable dynamic `<changefreq>` based on URL patterns |
 | `--ignoremeta`      | Ignore `<meta name="robots">` directives |
@@ -194,6 +195,20 @@ When using `--splitbysite`, the crawler will:
 3. Ping search engines (Google, Bing, Yandex) with the `sitemap_index.xml` URL instead of individual sitemap files
 
 This is useful when crawling multiple domains in a single run.
+
+---
+
+## Crawl Map Visualization
+
+If you enable `--graph`, the crawler will export:
+
+- `graph.json` – link structure as raw data
+- `crawl_map.html` – interactive map powered by D3.js
+
+You can explore your site structure visually, zoom in/out, drag nodes, and inspect links.
+Useful for spotting crawl traps, dead ends, and structure gaps.
+
+📍 Tip: For large sites, open the HTML file in Chrome or Firefox.
 
 ---
 

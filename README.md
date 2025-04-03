@@ -22,6 +22,12 @@ It crawls one or multiple domains, respects `robots.txt`, follows meta directive
 - 🛠 Health check report
 - 📡 Ping Google/Bing/Yandex
 - 🧪 Debug mode with detailed logs
+- 📑 Structured logging with timestamps and levels (`info`, `error`, `debug`, etc.)
+- 📑 Log export: JSON format + HTML report (`logs/crawl_log.json`, `logs/crawl_log.html`)
+- 📑 Visual crawl map generation (`crawl_graph.json`, `crawl_map.html`)
+- 📧 Flattened email reports with attached crawl logs
+- 📧 Customizable sender email via `--from`
+- 📑 Public base URL for sitemap/map references via `--publicbase`
 
 ---
 
@@ -74,7 +80,11 @@ sitemap.php?url=https://yourdomain.com&key=YOUR_SECRET_KEY&gzip&prettyxml
 | `--threads=`        | Number of concurrent crawl threads (default: 10) |
 | `--agent=`          | Set a custom User-Agent |
 | `--splitbysite`     | Generate one sitemap per domain and build sitemap_index.xml to link them |
+| `--graphmap`     | Generate crawl map as JSON and interactive HTML |
+| `--publicbase=`     | Public base URL for HTML links (e.g., https://example.com/sitemaps) |
+| `--from=`     | Sender address for email reports |
 | `--debug`           | Output detailed log info for debugging |
+
 
 ---
 
@@ -84,6 +94,10 @@ sitemap.php?url=https://yourdomain.com&key=YOUR_SECRET_KEY&gzip&prettyxml
 - `cache/visited.json` → stores crawl progress (used with `--resume`)
 - `logs/crawl_log.txt` → full crawl log
 - `logs/health_report.txt` → summary of crawl (errors, speed, blocks)
+- `logs/crawl_log.json`      → Structured log as JSON
+- `logs/crawl_log.html`      → Visual HTML report of the crawl log
+- `crawl_graph.json`         → Graph structure for visualization
+- `crawl_map.html`           → Interactive crawl map
 
 ---
 

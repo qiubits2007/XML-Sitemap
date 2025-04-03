@@ -1328,7 +1328,7 @@ class SitemapGenerator
 }
 
 // Define authorized hash key to protect script access
-$authorizedHash = 'eabeLmsIpTAIsMitUrBErnanGEstAglEctRadICarAmbIrfOLI';
+$authorizedHash = 'YOUR_SECRET_KEY';
 
 // Detect CLI or Web context
 $isCli = php_sapi_name() === 'cli';

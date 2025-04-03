@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [1.5.0] – 2025-04-03
+
+### ✨ Added
+- Unified structured logging system with timestamp, log level, and message
+- JSON log export (`logs/crawl_log.json`)
+- Optional styled HTML log report (`logs/crawl_log.html`) using `log_template_dark.html`
+- Visual crawl map (JSON + HTML) via `--graphmap` and optional `--publicbase`
+- `addLog($message, $level)` helper to standardize internal logging
+- `flattenLog()` to convert structured logs into text for plaintext output
+- Export of structured logs for email reporting (as attached `.txt`)
+- Timestamped email reports with proper MIME multipart formatting
+- Optional sender via `--from` parameter
+- New option `--publicbase` to define public base URL for sitemap/map references
+
+### 🛠️ Changed
+- All `$this->log[]` replaced with `addLog()` for unified structure
+- `crawl_log.txt` now uses flattened structured log entries
+- `pingSearchEngines()` now correctly resolves and logs ping URLs
+- Sitemap generation is now deferred to `finalizeAfterRun()` for logical sequencing
+- HTML template loading is moved to external file in `/templates`
+
+### 🧹 Fixed
+- Double log entries and inconsistencies in multi-domain mode
+- Sitemap was previously overwritten in multi-domain mode without `--splitbysite`
+- Health check parsing now handles structured logs without `str_contains()` error
+- Fixed missing sitemap summary when no split is used
+
+---
+
 ## [1.4.0] - 2025-03-28
 
 ### Added

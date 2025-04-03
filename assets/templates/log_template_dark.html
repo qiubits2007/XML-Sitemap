@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Crawl Log Viewer</title>
+  <style>
+    body { background-color: #121212; color: #eee; font-family: monospace; padding: 2em; }
+    h1 { color: #90caf9; }
+    pre { background: #1e1e1e; padding: 1em; border-radius: 5px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <h1>Sitemap Crawl Log</h1>
+  <pre id="logOutput"></pre>
+  <script>
+    const logData = JSON.parse(`{{LOG_JSON}}`);
+    const output = logData.map(line => line).join("\n");
+    document.getElementById('logOutput').innerText = output;
+  </script>
+</body>
+</html>

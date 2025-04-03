@@ -1,1 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Crawl Map Viewer</title>
+  <script type="text/javascript" src="https://unpkg.com/vis-network@9.1.2/dist/vis-network.min.js"></script>
+  <link href="https://unpkg.com/vis-network@9.1.2/styles/vis-network.min.css" rel="stylesheet" />
+  <style>
+    html, body {
+      background: #1e1e1e;
+      color: #ffffff;
+      font-family: sans-serif;
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+    #top-bar {
+      padding: 10px;
+      background: #2b2b2b;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      z-index: 2;
+    }
+    #network {
+      width: 100%;
+      height: calc(100vh - 60px);
+    }
+    input[type="text"], input[type="number"], select {
+      padding: 5px;
+      font-size: 14px;
+    }
+    label {
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+<div id="top-bar">
+  <label for="filter">🔍 URL Filter:</label>
+  <input type="text" id="filter" placeholder="part of URL..." oninput="applyFilter()">
+  <label for="depth">📏 Max Depth:</label>
+  <input type="number" id="depth" min="0" oninput="applyFilter()">
+  <label for="status">🟢 HTTP Status:</label>
+  <select id="status" onchange="applyFilter()">
+    <option value="">All</option>
+    <option value="200">200 OK</option>
+    <option value="301">301 Redirect</option>
+    <option value="302">302 Redirect</option>
+    <option value="403">403 Forbidden</option>
+    <option value="404">404 Not Found</option>
+    <option value="500">500 Error</option>
+  </select>
+  <label for="ext">🧩 Extension:</label>
+  <input type="text" id="ext" placeholder="e.g. html, pdf" oninput="applyFilter()">
+  <span id="match-count"></span>
+</div>
+<div id="network"></div>
 
+<script>
+  let allNodes = [];
+  let allEdges = [];
+
+  async function loadGraph() {
+    try {
+      const response = await fetch('crawl_graph.json');
+      const data = await response.json();
+
+      allNodes = data.nodes;
+      allEdges = data.edges;
+
+      drawNetwork(allNodes, allEdges);
+    } catch (err) {
+      console.error('Failed to load crawl_graph.json', err);
+    }
+  }
+
+  function drawNetwork(nodesData, edgesData) {
+    const container = document.getElementById('network');
+    const nodes = new vis.DataSet(nodesData);
+    const edges = new vis.DataSet(edgesData);
+
+    const options = {
+      layout: {
+        improvedLayout: false
+      },
+      physics: {
+        stabilization: true,
+        barnesHut: {
+          gravitationalConstant: -30000,
+          springLength: 250,
+          springConstant: 0.01,
+          damping: 0.4
+        }
+      },
+      interaction: {
+        zoomView: true,
+        dragView: true,
+        tooltipDelay: 100,
+        hover: true
+      },
+      nodes: {
+        shape: 'dot',
+        size: 8,
+        color: {
+          background: '#4a90e2',
+          border: '#ffffff'
+        },
+        font: {
+          color: '#ffffff'
+        }
+      },
+      edges: {
+        color: '#cccccc',
+        smooth: {
+          enabled: true,
+          type: 'continuous'
+        }
+      }
+    };
+
+    const network = new vis.Network(container, { nodes, edges }, options);
+    network.on("stabilizationIterationsDone", function () {
+      network.setOptions({ physics: false });
+    });
+  }
+
+  function applyFilter() {
+    const keyword = document.getElementById("filter").value.toLowerCase();
+    const maxDepth = parseInt(document.getElementById("depth").value, 10);
+    const status = document.getElementById("status").value;
+    const ext = document.getElementById("ext").value.toLowerCase();
+
+    const filteredNodes = allNodes.filter(n =>
+            (typeof n.label === 'string' && n.label.toLowerCase().includes(keyword)) &&
+            (!isNaN(maxDepth) ? (n.level === undefined || n.level <= maxDepth) : true) &&
+            (status ? String(n.status) === status : true) &&
+            (ext ? (n.extension || '').toLowerCase() === ext : true)
+    );
+
+    const nodeIds = new Set(filteredNodes.map(n => n.id));
+    const filteredEdges = allEdges.filter(e => nodeIds.has(e.from) && nodeIds.has(e.to));
+
+    drawNetwork(filteredNodes, filteredEdges);
+    document.getElementById("match-count").textContent = `${filteredNodes.length} nodes matched`;
+  }
+
+  loadGraph();
+</script>
+</body>
+</html>

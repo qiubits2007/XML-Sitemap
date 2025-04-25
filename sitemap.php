@@ -84,9 +84,9 @@
  *  - crawl_map.html     (Optional) Interactive crawl visualization
  *
  * Author: Gilles Dumont (QIUBITS SARL)
- * Version: 1.5.0
+ * Version: 1.6.0
  * License: MIT
- * Created: 2025-04-03
+ * Created: 2025-04-25
  */
 
 declare(strict_types=1);
@@ -763,10 +763,6 @@ class SitemapGenerator
     /**
      * Pings search engines (Google, Bing, Yandex) with the generated sitemap URL.
      * Automatically detects the correct sitemap path and supports gzip + custom output paths.
-     */
-    /**
-     * Pings search engines (Google, Bing, Yandex) with the generated sitemap URL.
-     * Automatically detects the correct sitemap path and supports gzip + custom output paths.
      * Logs are written to both the domain log and the global log for inclusion in reports.
      */
     private function pingSearchEngines(): void
@@ -813,8 +809,6 @@ class SitemapGenerator
 
         // List of search engine ping endpoints
         $engines = [
-            'Google' => 'https://www.google.com/ping?sitemap=' . urlencode($sitemapUrl),
-            'Bing'   => 'https://www.bing.com/ping?sitemap=' . urlencode($sitemapUrl),
             'Yandex' => 'https://webmaster.yandex.com/ping?sitemap=' . urlencode($sitemapUrl)
         ];
 
@@ -1304,26 +1298,89 @@ class SitemapGenerator
 
         $logData = json_encode($this->log, JSON_UNESCAPED_SLASHES);
         $html = file_get_contents($template);
-        $html = str_replace('/*__LOG_JSON__*/', "const logEntries = $logData;", $html);
+        $html = str_replace('{{LOG_JSON}}', "const logEntries = $logData;", $html);
         file_put_contents($target, $html);
 
         $this->addLog("HTML log exported to: $target", 'info');
     }
 
     /**
-     * Converts structured log entries into flat strings for text file output.
+     * Flattens and groups log entries based on their log level.
      *
-     * @param array $log Structured log array with keys: time, level, message
-     * @return array Array of log lines as strings
+     * Each log is sorted into a named section based on its original 'level' key.
+     * Supports custom log levels like 'indexed', 'skipped', 'meta blocked', etc.
+     *
+     * @param array $log
+     * @return array
      */
     private function flattenLog(array $log): array
     {
-        return array_map(function ($entry) {
+        $groups = [
+            'SUMMARY'  => [],
+            'INDEXED'  => [],
+            'BLOCKED'  => [],
+            'SKIPPED'  => [],
+            'ERRORS'   => [],
+            'QUEUED'   => [],
+            'SITEMAP'  => [],
+            'GENERAL'  => [],
+        ];
+
+        foreach ($log as $entry) {
             $time = $entry['time'] ?? '-';
-            $level = $entry['level'] ?? 'INFO';
-            $message = $entry['message'] ?? '[empty]';
-            return "[{$time}] [{$level}] $message";
-        }, $log);
+            $level = strtolower($entry['level'] ?? 'info');
+            $msg = $entry['message'] ?? '';
+            $line = "[$time] [" . strtoupper($level) . "] $msg";
+
+            switch ($level) {
+                case 'indexed':
+                    $groups['INDEXED'][] = $line;
+                    break;
+                case 'blocked':
+                case 'meta blocked':
+                case 'robots':
+                    $groups['BLOCKED'][] = $line;
+                    break;
+                case 'skipped':
+                case 'skipped extension':
+                    $groups['SKIPPED'][] = $line;
+                    break;
+                case 'error':
+                case 'errors':
+                case 'mail error':
+                    $groups['ERRORS'][] = $line;
+                    break;
+                case 'empty response':
+                    $groups['EMPTY RESPONSE'][] = $line;
+                    break;
+                case 'queued':
+                case 'queue':
+                    $groups['QUEUED'][] = $line;
+                    break;
+                case 'sitemap':
+                case 'ping':
+                    $groups['SITEMAP'][] = $line;
+                    break;
+                case 'success':
+                case 'summary':
+                    $groups['SUMMARY'][] = $line;
+                    break;
+                default:
+                    $groups['GENERAL'][] = $line;
+                    break;
+            }
+        }
+
+        $output = [];
+        foreach ($groups as $section => $lines) {
+            if (!empty($lines)) {
+                $output[] = "==== $section ====";
+                $output = array_merge($output, $lines);
+                $output[] = '';
+            }
+        }
+
+        return $output;
     }
 }
 

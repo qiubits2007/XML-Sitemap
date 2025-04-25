@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [1.6.0] – 2025-04-25
+### Added
+- Structured logging with timestamp, log level and message per entry
+- New `flattenLog()` groups output by category (INDEXED, SKIPPED, BLOCKED, ERRORS, etc.)
+- Export as `crawl_log.json`, `crawl_log.txt` and `crawl_log.html`
+- New `crawl_graph.json` for visual map data
+- New interactive `crawl_map.html` with filters for depth, status, type
+- Configurable log email sender via `--from`
+- Full crawl report as `.txt` attachment in mail
+
+### Changed
+- `pingSearchEngines()` adjusted: Google & Bing ping endpoints deprecated
+- Ping to search engines now optional and safely logged
+- `addLog()` consistently supports levels: `info`, `error`, `skipped`, `indexed`, `blocked`, `sitemap`, `ping`, etc.
+
+### Fixed
+- Duplicate log output on resume
+- Issues with incorrect sitemap ping URLs
+- General structure cleanup and docblocks added
+
+---
+
 ## [1.5.0] – 2025-04-03
 
 ### ✨ Added

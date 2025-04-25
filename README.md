@@ -2,6 +2,7 @@
 
 A powerful and customizable sitemap generator written in PHP (PHP 8+).  
 It crawls one or multiple domains, respects `robots.txt`, follows meta directives, supports resumable sessions, sends logs by email, and can even notify search engines when the sitemap is ready.
+It is optimized for large websites and offers advanced crawl controls, meta/robots filtering, JSON/HTML export, and more.
 
 ---
 
@@ -58,44 +59,47 @@ sitemap.php?url=https://yourdomain.com&key=YOUR_SECRET_KEY&gzip&prettyxml
 
 ## 🧩 Options
 
-| Option              | Description |
-|---------------------|-------------|
-| `--url=`            | Comma-separated domain list to crawl (required) |
-| `--key=`            | Secret key to authorize script execution (required) |
-| `--output=`         | Output path for the sitemap file |
-| `--depth=`          | Max crawl depth (default: 3) |
-| `--gzip`            | Export sitemap as `.gz` |
-| `--prettyxml`       | Human-readable XML output |
-| `--resume`          | Resume from last crawl using `cache/visited.json` |
-| `--resetcache`      | Force fresh crawl by deleting the cache (NEW) |
-| `--resetlog`        | Clear previous crawl logs before start (NEW) |
-| `--filters`         | Enable external filtering from `filter_config.json` |
-| `--graph`           | Export visual crawl map (JSON + interactive HTML) |
-| `--priorityrules`   | Enable dynamic `<priority>` based on URL patterns |
-| `--changefreqrules` | Enable dynamic `<changefreq>` based on URL patterns |
-| `--ignoremeta`      | Ignore `<meta name="robots">` directives |
-| `--respectrobots`   | Obey rules in `robots.txt` |
-| `--email=`          | Send crawl log to this email |
-| `--ping`            | Notify search engines after sitemap generation |
-| `--threads=`        | Number of concurrent crawl threads (default: 10) |
-| `--agent=`          | Set a custom User-Agent |
+| Option              | Description                                                              |
+|---------------------|--------------------------------------------------------------------------|
+| `--url=`            | Comma-separated domain list to crawl (required)                          |
+| `--key=`            | Secret key to authorize script execution (required)                      |
+| `--output=`         | Output path for the sitemap file                                         |
+| `--depth=`          | Max crawl depth (default: 3)                                             |
+| `--gzip`            | Export sitemap as `.gz`                                                  |
+| `--prettyxml`       | Human-readable XML output                                                |
+| `--resume`          | Resume from last crawl using `cache/visited.json`                        |
+| `--resetcache`      | Force fresh crawl by deleting the cache (NEW)                            |
+| `--resetlog`        | Clear previous crawl logs before start (NEW)                             |
+| `--filters`         | Enable external filtering from `filter_config.json`                      |
+| `--graph`           | Export visual crawl map (JSON + interactive HTML)                        |
+| `--priorityrules`   | Enable dynamic `<priority>` based on URL patterns                        |
+| `--changefreqrules` | Enable dynamic `<changefreq>` based on URL patterns                      |
+| `--ignoremeta`      | Ignore `<meta name="robots">` directives                                 |
+| `--respectrobots`   | Obey rules in `robots.txt`                                               |
+| `--email=`          | Send crawl log to this email                                             |
+| `--ping`            | Notify search engines after sitemap generation (⚠️ Google/Bing ping deprecated)                          |
+| `--threads=`        | Number of concurrent crawl threads (default: 10)                         |
+| `--agent=`          | Set a custom User-Agent                                                  |
 | `--splitbysite`     | Generate one sitemap per domain and build sitemap_index.xml to link them |
-| `--graphmap`     | Generate crawl map as JSON and interactive HTML |
-| `--publicbase=`     | Public base URL for HTML links (e.g., https://example.com/sitemaps) |
-| `--from=`     | Sender address for email reports |
-| `--debug`           | Output detailed log info for debugging |
+| `--graphmap`     | Generate crawl map as JSON and interactive HTML                          |
+| `--publicbase=`     | Public base URL for HTML links (e.g., https://example.com/sitemaps)      |
+| `--from=`     | Sender address for email reports                                         |
+| `--debug`           | Output detailed log info for debugging                                   |
 
 
 ---
 
 ## 📁 Output Files
 
-- `sitemap.xml` (or `.gz` if `--gzip` is used)
+- `sitemap.xml` or `sitemap-*.xml`
+- `sitemap.xml.gz` (optional)
+- `sitemap_index.xml` (if split)
 - `cache/visited.json` → stores crawl progress (used with `--resume`)
 - `logs/crawl_log.txt` → full crawl log
-- `logs/health_report.txt` → summary of crawl (errors, speed, blocks)
 - `logs/crawl_log.json`      → Structured log as JSON
 - `logs/crawl_log.html`      → Visual HTML report of the crawl log
+- `logs/crawl_report_*.txt`       → emailed attachment
+- `logs/health_report.txt` → summary of crawl (errors, speed, blocks)
 - `crawl_graph.json`         → Graph structure for visualization
 - `crawl_map.html`           → Interactive crawl map
 
@@ -160,9 +164,12 @@ Activate with:
 
 With `--ping` enabled, the script will notify:
 
-- Google: `https://www.google.com/ping`
-- Bing: `https://www.bing.com/ping`
 - Yandex: `https://webmaster.yandex.com/ping`
+
+As of 2023/2024:
+- ❌ **Google** and **Bing** ping endpoints are deprecated (410 Gone)
+- ✅ Use `robots.txt` with a `Sitemap:` entry
+- ✅ Optionally submit in Webmaster Tools
 
 ---
 
@@ -237,6 +244,17 @@ You can explore your site structure visually, zoom in/out, drag nodes, and inspe
 Useful for spotting crawl traps, dead ends, and structure gaps.
 
 📍 Tip: For large sites, open the HTML file in Chrome or Firefox.
+
+---
+
+## 🔐 Example robots.txt
+
+```
+User-agent: *
+Disallow:
+
+Sitemap: https://yourdomain.com/sitemap.xml
+```
 
 ---
 
